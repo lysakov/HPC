@@ -6,12 +6,11 @@
 #include "Master.h"
 #include "Worker.h"
 
-double F(Point M)
-{
-
-    return exp(M.x*M.x + M.y*M.y) * M.z*M.z;
-
-}
+enum {
+    POINTS_BROADCAST,
+    RESULT_BROADCAST,
+    FINAL_BROADCAST
+};
 
 int isInDomain(Point M)
 {
@@ -20,27 +19,90 @@ int isInDomain(Point M)
 
 }
 
+double F(Point M)
+{
+
+    return isInDomain(M) ? exp(M.x*M.x + M.y*M.y) * M.z : 0.0;
+
+}
+
 int main(int argc, char **argv)
 {
+
     MPI_Init(&argc, &argv);
 
     int rank = 0;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank == 0) {
-        Domain domain = {.x1 = -1, .x2 = 1, .y1 = -1, .y2 = 1, .z1 = -1, .z2 = 1};
-        struct Master *master = createMaster(domain);
+    int size = 0;
+    int N = 100;
 
-        int N = 1000;
-        Point *points = generateDots(master, N);
-        for (int i = 0; i < N; ++i) {
-            printf("x = %f, y = %f, z = %f\n", points[i].x, points[i].y, points[i].z);
+    if (argc > 2) {
+        N = (int)strtol(argv[2], NULL, 10);
+    }
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (rank == 0) {
+        Domain domain = {.x1 = -1, .x2 = 1, .y1 = -1, .y2 = 1, .z1 = 0, .z2 = 1};
+        struct Master *master = createMaster(domain);
+        double targetVal = 2.0 * M_PI * (M_E / 4 - 0.5);
+        double error = strtod(argv[1], NULL);
+        double startTime = MPI_Wtime();
+        long dotsGenerated = 0;
+
+        for (int i = 1; i < size; ++i) {
+            Point *points = generateDots(master, N);
+            MPI_Send((void*)points, 3*N, MPI_DOUBLE, i, POINTS_BROADCAST, MPI_COMM_WORLD);
+            dotsGenerated += N;
+
+            free(points);
+            //deleteMaster(master);
         }
 
-        printf("Sum = %f\n", compute(F, points, N));
+        while (fabs(computeResult(master) - targetVal) > error) {
+            double res = 0.0;
+            MPI_Status status;
+            Point *points = generateDots(master, N);
+            dotsGenerated += N;
 
-        free(points);
+            MPI_Recv(&res, 1, MPI_DOUBLE, MPI_ANY_SOURCE, RESULT_BROADCAST, MPI_COMM_WORLD, &status);
+            MPI_Send((void*)points, 3*N, MPI_DOUBLE, status.MPI_SOURCE, POINTS_BROADCAST, MPI_COMM_WORLD);
+            saveResult(master, res);
+            
+            free(points);
+        }
+
+        for (int i = 1; i < size; ++i) {
+            int data = 0;
+            MPI_Send(&data, 1, MPI_INT, i, FINAL_BROADCAST, MPI_COMM_WORLD);
+        }
+        
+        double endTime = MPI_Wtime();
+
+        printf("I = %f\n", computeResult(master));
+        printf("Process number: %d\n", size);
+        printf("Running time: %f\n", endTime - startTime);
+        printf("Target error: %f\n", error);
+        printf("Error: %f\n", fabs(targetVal - computeResult(master)));
+        printf("Points generated: %ld\n", dotsGenerated);
+
         deleteMaster(master);
+    }
+    else {
+        while(1) {
+            MPI_Status status;
+            Point *points = (Point*)malloc(N * sizeof(Point));
+            MPI_Recv((void*)points, 3 * N, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
+            if (status.MPI_TAG == FINAL_BROADCAST) {
+                free(points);
+                break;
+            }
+
+            double res = compute(F, points, N);
+            MPI_Send(&res, 1, MPI_DOUBLE, 0, RESULT_BROADCAST, MPI_COMM_WORLD);
+            free(points);
+        }
     }
     
     MPI_Finalize();
