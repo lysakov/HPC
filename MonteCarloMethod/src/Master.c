@@ -34,22 +34,19 @@ struct Master* createMaster(const Domain domain)
 
 }
 
-Point* generateDots(struct Master *this, int n)
+Point* generateDots(struct Master *this, Point *buffer, int n)
 {
 
-    Point *dots = (Point*)malloc(n * sizeof(Point));
-    int i = 0;
-
-    for (i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         Point dot;
         dot.x = getRandomDouble(this->domain.x1, this->domain.x2);
         dot.y = getRandomDouble(this->domain.y1, this->domain.y2);
         dot.z = getRandomDouble(this->domain.z1, this->domain.z2);
-        dots[i] = dot;
+        buffer[i] = dot;
     }
     this->dotsGenerated += n;
 
-    return dots;
+    return buffer;
 
 }
 
