@@ -6,7 +6,6 @@
 struct Master
 {
 
-    double result;
     int dotsGenerated;
     Domain domain;
 
@@ -26,7 +25,6 @@ struct Master* createMaster(const Domain domain)
 
     srand(time(NULL));
     struct Master *master = (struct Master*)malloc(sizeof(struct Master));
-    master->result = 0;
     master->domain = domain;
     master->dotsGenerated = 0;
 
@@ -34,7 +32,14 @@ struct Master* createMaster(const Domain domain)
 
 }
 
-Point* generateDots(struct Master *this, Point *buffer, int n)
+int getPoinsNumber(struct Master *this)
+{
+
+    return this->dotsGenerated;
+
+}
+
+void generateDots(struct Master *this, Point *buffer, int n)
 {
 
     for (int i = 0; i < n; ++i) {
@@ -47,25 +52,6 @@ Point* generateDots(struct Master *this, Point *buffer, int n)
     this->dotsGenerated += n;
 
     return buffer;
-
-}
-
-void saveResult(struct Master *this, double res)
-{
-
-    this->result += res;
-
-}
-
-double computeResult(struct Master *this)
-{
-
-    double res = (this->domain.x2 - this->domain.x1) * 
-        (this->domain.y2 - this->domain.y1) *
-        (this->domain.z2 - this->domain.z1) *
-        this->result / this->dotsGenerated;
-
-    return res;
 
 }
 

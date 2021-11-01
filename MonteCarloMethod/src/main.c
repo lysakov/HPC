@@ -8,7 +8,6 @@
 
 enum {
     POINTS_BROADCAST,
-    REQUEST_POINTS_BROADCAST,
     FINAL_BROADCAST
 };
 
@@ -35,7 +34,7 @@ void generatePointBuf(Point **buf, struct Master *master, int size, int dotNum)
 {
     
     for (int i = 1; i < size; ++i) {
-        buf[i] = generateDots(master, buf[i], dotNum);
+        generateDots(master, buf[i], dotNum);
     }
 
 }
@@ -90,7 +89,6 @@ int main(int argc, char **argv)
             if (result_buf[POINTS_GENERATED] != 0) {
                 I = V*result_buf[SUM]/result_buf[POINTS_GENERATED];
             }
-            //printf("%f, %f, %f\n", result_buf[0], result_buf[1], I);
         } while (fabs(I - targetVal) > error);
 
         for (int i = 1; i < size; ++i) {
@@ -120,7 +118,6 @@ int main(int argc, char **argv)
 
             result_buf[SUM] = compute(F, points, N);
             result_buf[POINTS_GENERATED] = N;
-            //printf("%d, %f, %f\n", rank, result_buf[0], result_buf[1]);
 
             MPI_Reduce(result_buf, NULL, 2, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 

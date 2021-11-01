@@ -6,9 +6,8 @@
 struct Master;
 
 struct Master* createMaster(const Domain domain);
-Point* generateDots(struct Master *this, Point *buffer, int n);
-void saveResult(struct Master *this, double res);
-double computeResult(struct Master *this);
+void generateDots(struct Master *this, Point *buffer, int n);
+int getPoinsNumber(struct Master *this);
 void deleteMaster(struct Master *this);
 
 #endif
