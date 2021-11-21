@@ -4,6 +4,11 @@
 #include <iostream>
 #include <cstring>
 
+#include <mpi.h>
+#include <omp.h>
+
+#include "macros.hpp"
+
 enum NodesType {
     TOP_NODES,
     BOTTOM_NODES,
@@ -41,6 +46,58 @@ int myPow(int x, int p)
         return tmp*tmp;
     else 
         return x*tmp*tmp;
+
+}
+
+double ParallelAlgebra::dot(double **u, double **v, const IndexRange &range) 
+{
+
+    double sum = 0.0;
+    #pragma omp parallel for reduction(+:sum)
+    for (int i = range.x1; i <= range.x2; ++i) {
+        for (int j = range.y1; j <= range.y2; ++j) {
+            sum += h1*h2*u[i][j]*v[i][j];
+        }
+    }
+
+    return sum;
+
+}
+
+void ParallelAlgebra::mult(double **r, double alpha, double **u, const IndexRange &range)
+{
+
+    #pragma omp parallel for
+    for (int i = range.x1; i <= range.x2; ++i) {
+        for (int j = range.y1; j <= range.y2; ++j) {
+            r[i][j] = alpha*u[i][j];
+        }
+    }
+
+}
+
+void ParallelAlgebra::subs(double **r, double **u, double **v, const IndexRange &range)
+{
+
+    #pragma omp parallel for
+    for (int i = range.x1; i <= range.x2; ++i) {
+        for (int j = range.y1; j <= range.y2; ++j) {
+            r[i][j] = u[i][j] - v[i][j];
+        }
+    }
+
+}
+
+void ParallelAlgebra::A(double **r, double **u, const IndexRange &range,
+    double (*k)(double, double), double (*q)(double, double))
+{
+
+    #pragma omp parallel for
+    for (int i = range.x1; i <= range.x2; ++i) {
+        for (int j = range.y1; j <= range.y2; ++j) {
+            r[i][j] = -dx(u, k) - dy(u, k) + q(x(i), y(j))*u[i][j];
+        }        
+    }
 
 }
 
@@ -100,7 +157,7 @@ void ParallelSolver::splitGrid(int rank, int size, IndexRange &range)
 
 }
 
-void ParallelSolver::sendNodes(const double **w, const ProcessorCoordinates &coord, 
+void ParallelSolver::sendNodes(double **w, const ProcessorCoordinates &coord, 
     const IndexRange &range, const std::pair<int, int> &pGridSize, double *buf)
 {
 
@@ -181,6 +238,9 @@ void ParallelSolver::solve(double error)
         //std::cout << "1) " << locSquaredNorm << "\n";
         MPI_Allreduce(MPI_IN_PLACE, &squaredNorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         //std::cout << "2) " << squaredNorm << "\n";
+        /*if (rank == 0) {
+            std::cout << sqrt(squaredNorm) << '\n';
+        }*/
     } while(sqrt(squaredNorm) > error);
 
 }
@@ -190,7 +250,7 @@ void ParallelSolver::step(const IndexRange &range)
 
     engine->A(ctx->curF, ctx->w, range, ctx->k, ctx->q);
     engine->subs(ctx->r, ctx->curF, ctx->B, range);
-    sendNodes(const_cast<const double**>(ctx->r), coord, range, pGrigSize, sendBuf);
+    sendNodes(ctx->r, coord, range, pGrigSize, sendBuf);
     receiveNodes(ctx->r, coord, range, pGrigSize, recvBuf);
 
     engine->A(ctx->Ar, ctx->r, range, ctx->k, ctx->q);
@@ -201,12 +261,12 @@ void ParallelSolver::step(const IndexRange &range)
 
     engine->mult(ctx->r, tau, ctx->r, range);
     engine->subs(ctx->w, ctx->w, ctx->r, range);
-    sendNodes(const_cast<const double**>(ctx->w), coord, range, pGrigSize, sendBuf);
+    sendNodes(ctx->w, coord, range, pGrigSize, sendBuf);
     receiveNodes(ctx->w, coord, range, pGrigSize, recvBuf);
 
 }
 
-double ParallelSolver::getError(const Domain &domain, double (*u)(double, double))
+double ParallelSolver::getError(double (*u)(double, double))
 {
 
     double **U = new double*[ctx->M + 1];
@@ -214,11 +274,9 @@ double ParallelSolver::getError(const Domain &domain, double (*u)(double, double
         U[i] = new double[ctx->N + 1];
     }
 
-    double h1 = (domain.x2 - domain.x1) / ctx->M;
-    double h2 = (domain.y2 - domain.y1) / ctx->N;
     for (int j = ctx->N; j >= 0; --j)
         for (int i = 0; i < ctx->M + 1; ++i)
-            U[i][j] = u(domain.x1 + i*h1, domain.y1 + j*h2);
+            U[i][j] = u(ctx->domain.x1 + i*ctx->h1, ctx->domain.y1 + j*ctx->h2);
 
     engine->subs(U, U, ctx->w, range);
     double norm = engine->dot(U, U, range);
@@ -232,6 +290,26 @@ double ParallelSolver::getError(const Domain &domain, double (*u)(double, double
     return sqrt(norm);
 
 }
+
+double** ParallelSolver::getSolution()
+{
+
+    ctx->finalize();
+    for (int i = 0; i < size; ++i) {
+        IndexRange r;
+        if (i == rank) {
+            r = this->range; 
+        }
+        MPI_Bcast(&r, 4, MPI_INTEGER, i, MPI_COMM_WORLD);
+        for (int j = 0; j <= r.x2 - r.x1; ++j) {
+            MPI_Bcast(ctx->w[r.x1 + j] + r.y1, r.y2 - r.y1 + 1, MPI_DOUBLE, i, MPI_COMM_WORLD);
+        }
+    }
+
+    return ctx->w;
+
+}
+
 
 void ParallelSolver::copyW()
 {

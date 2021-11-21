@@ -24,7 +24,6 @@ inline double q(double x, double y)
 inline double F(double x, double y)
 {
     return (6*x + 2*y - 8*(x + 4)*(x + y)*(x + y) + (x + y)*(x + y) + 16)*exp(1 - (x + y)*(x + y));
-    //return -(8*x*x*x + 16*x*x*y + 31*x*x + 8*x*y*y + 62*x*y - 6*x + 31*y*y - 2*y - 16)*exp(1 - (x + y)*(x + y));
 }
 
 /** phi_1(y) = u(-1, y) */
@@ -49,6 +48,14 @@ inline double phi_3(double x)
 inline double phi_4(double x)
 {
     return u(x, 2);
+}
+
+inline void initDomain(double &x1, double &x2, double &y1, double &y2)
+{
+    x1 = -1.0;
+    x2 = 2.0;
+    y1 = -2.0;
+    y2 = 2.0;
 }
 
 #endif

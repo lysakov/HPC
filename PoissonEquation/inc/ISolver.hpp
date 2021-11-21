@@ -38,7 +38,8 @@ class ISolver
 
 public:
     virtual void solve(double error) = 0;
-    virtual void step(const IndexRange &range) = 0;
+    virtual double** getSolution() = 0;
+    virtual double getError(double (*u)(double, double)) = 0;
     virtual ~ISolver() {}
 
 };
@@ -53,6 +54,7 @@ public:
         double (*phi_1)(double), double (*phi_2)(double), 
         double (*phi_3)(double), double (*phi_4)(double),
         int M, int N, Domain domain) :
+        k(k), q(q), F(F),
         phi_1(phi_1), phi_2(phi_2),
         phi_3(phi_3), phi_4(phi_4), 
         M(M), N(N), domain(domain)
@@ -60,9 +62,6 @@ public:
         #define x(i) (domain.x1 + i*h1)
         #define y(i) (domain.y1 + i*h2)
 
-        this->F = F;
-        this->k = k;
-        this->q = q;
         this->h1 = (domain.x2 - domain.x1) / M;
         this->h2 = (domain.y2 - domain.y1) / N;
         this->N = N;
@@ -89,42 +88,26 @@ public:
                 r[i][j] = 0.0;
                 Ar[i][j] = 0.0;
                 buf[i][j] = 0.0;
+                w[i][j] = 0.0;
+                curF[i][j] = 0.0;
                 if (i == 0) {
                     B[i][j] = phi_1(y(j));
-                    w[i][j] = B[i][j];
-                    curF[i][j] = B[i][j];
-                    //r[i][j] = this->B[i][j];
-                    //Ar[i][j] = this->B[i][j];
                     continue;
                 }
                 if (i == M) {
                     B[i][j] = phi_2(y(j));
-                    w[i][j] = B[i][j];
-                    curF[i][j] = B[i][j];
-                    //r[i][j] = this->B[i][j];
-                    //Ar[i][j] = this->B[i][j];
                     continue;
                 }
                 if (j == 0) {
                     B[i][j] = phi_3(x(i));
-                    w[i][j] = B[i][j];
-                    curF[i][j] = B[i][j];
-                    //r[i][j] = this->B[i][j];
-                    //Ar[i][j] = this->B[i][j];
                     continue;
                 }
                 if (j == N) {
                     B[i][j] = phi_4(x(i));
-                    w[i][j] = B[i][j];
-                    curF[i][j] = B[i][j];
-                    //r[i][j] = this->B[i][j];
-                    //Ar[i][j] = this->B[i][j];
                     continue;
                 }
 
                 B[i][j] = F(x(i), y(j));
-                w[i][j] = 0.0;
-                curF[i][j] = 0.0;
 
                 if (i == 1) {
                     this->B[i][j] += k(x(i) - 0.5*h1, y(j))*phi_1(y(j))/(h1*h1);
@@ -142,6 +125,32 @@ public:
         }
         #undef x
         #undef y
+    }
+
+    void finalize()
+    {
+
+        for (int i = 0; i < M + 1; ++i) {
+            for (int j = 0; j < N + 1; ++j) {
+                if (i == 0) {
+                    w[i][j] = phi_1(domain.y1 + j*h2);
+                    continue;
+                }
+                if (i == M) {
+                    w[i][j] = phi_2(domain.y1 + j*h2);
+                    continue;
+                }
+                if (j == 0) {
+                    w[i][j] = phi_3(domain.x1 + i*h1);
+                    continue;
+                }
+                if (j == N) {
+                    w[i][j] = phi_4(domain.x1 + i*h1);
+                    continue;
+                }
+            }
+        }
+
     }
 
     ~Context()
@@ -163,9 +172,9 @@ public:
         delete[] buf;
     }
 
-    double (*F)(double, double);
     double (*k)(double, double);
     double (*q)(double, double);
+    double (*F)(double, double);
     double (*phi_1)(double);
     double (*phi_2)(double);
     double (*phi_3)(double);

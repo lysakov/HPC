@@ -4,14 +4,7 @@
 #include <cmath>
 #include <iostream>
 
-#define x(i) (domain.x1 + i*h1)
-#define y(i) (domain.y1 + i*h2)
-#define d_rx(w, i, j) (w[i + 1][j] - w[i][j])/h1
-#define d_ry(w, i, j) (w[i][j + 1] - w[i][j])/h2
-#define d_lx(w, i, j) (w[i][j] - w[i - 1][j])/h1
-#define d_ly(w, i, j) (w[i][j] - w[i][j - 1])/h2
-#define dx(w, k) (k(x(i) + 0.5*h1, y(j))*d_rx(w, i, j) - k(x(i) - 0.5*h1, y(j))*d_lx(w, i, j))/h1
-#define dy(w, k) (k(x(i), y(j) + 0.5*h2)*d_ry(u, i, j) - k(x(i), y(j) - 0.5*h2)*d_ly(u, i, j))/h2
+#include "macros.hpp"
 
 double SerialAlgebra::dot(double **u, double **v, const IndexRange &range) 
 {
@@ -59,7 +52,7 @@ void SerialAlgebra::A(double **r, double **u, const IndexRange &range,
         for (int j = range.y1; j <= range.y2; ++j) {
             r[i][j] = -dx(u, k) - dy(u, k) + q(x(i), y(j))*u[i][j];
         
-            if (i == 1) {
+            /*if (i == 1) {
                 r[i][j] += k(x(i) - 0.5*h1, y(j))*u[i - 1][j]/(h1*h1);
             }
             if (i == M - 1) {
@@ -70,7 +63,7 @@ void SerialAlgebra::A(double **r, double **u, const IndexRange &range,
             }
             if (j == N - 1) {
                 r[i][j] += k(x(i), y(j) + 0.5*h2)*u[i][j + 1]/(h2*h2);
-            }
+            }*/
         }        
     }
 
@@ -129,7 +122,7 @@ double SerialSolver::getError(double (*u)(double, double))
         std::cout << std::endl;
     }*/
 
-    IndexRange range(0, ctx->M, 0, ctx->N);
+    IndexRange range(1, ctx->M - 1, 1, ctx->N - 1);
     engine->subs(U, U, ctx->w, range);
     double norm = engine->norm(U, range);
 
@@ -145,14 +138,22 @@ double SerialSolver::getError(double (*u)(double, double))
 void SerialSolver::copyW()
 {
 
-    for (int i = 0; i < ctx->M; ++i) {
-        for (int j = 0; j < ctx->N; ++j) {
+    for (int i = 1; i < ctx->M; ++i) {
+        for (int j = 1; j < ctx->N; ++j) {
             ctx->buf[i][j] = ctx->w[i][j];
         }
     }
 
 }
 
+double** SerialSolver::getSolution()
+{
+
+    ctx->finalize();
+
+    return ctx->w;
+
+}
 
 std::ostream& operator<<(std::ostream& str, const SerialSolver &solver)
 {
