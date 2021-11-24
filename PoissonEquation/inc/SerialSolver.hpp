@@ -15,10 +15,10 @@ public:
         h1 = (domain.x2 - domain.x1) / M;
         h2 = (domain.y2 - domain.y1) / N;
     }
-    virtual double dot(double **u, double **v, const IndexRange &range);
-    virtual void mult(double **r, double alpha, double **u, const IndexRange &range);
-    virtual void subs(double **r, double **u, double **v, const IndexRange &range);
-    virtual void A(double **r, double **u, const IndexRange &range,
+    virtual double dot(double *u, double *v, const IndexRange &range);
+    virtual void mult(double *r, double alpha, double *u, const IndexRange &range);
+    virtual void subs(double *r, double *u, double *v, const IndexRange &range);
+    virtual void A(double *r, double *u, const IndexRange &range,
         double (*k)(double, double), double (*q)(double, double));
 
 private:
@@ -34,7 +34,7 @@ class SerialSolver: public ISolver
 public:
     SerialSolver(Context *ctx, AbstractLinearAlgebra *engine) : ctx(ctx), engine(engine) {}
     virtual void solve(double error);
-    virtual double** getSolution();
+    virtual double* getSolution();
     void step(const IndexRange &range);
     virtual double getError(double (*u)(double, double));
     virtual ~SerialSolver() {}

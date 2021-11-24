@@ -3,9 +3,7 @@
 
 #include "ISolver.hpp"
 
-#include <mpi.h>
 #include <utility>
-#include <iostream>
 
 class ParallelAlgebra : public AbstractLinearAlgebra
 {
@@ -16,10 +14,10 @@ public:
         h1 = (domain.x2 - domain.x1) / M;
         h2 = (domain.y2 - domain.y1) / N;
     }
-    virtual double dot(double **u, double **v, const IndexRange &range);
-    virtual void mult(double **r, double alpha, double **u, const IndexRange &range);
-    virtual void subs(double **r, double **u, double **v, const IndexRange &range);
-    virtual void A(double **r, double **u, const IndexRange &range,
+    virtual double dot(double *u, double *v, const IndexRange &range);
+    virtual void mult(double *r, double alpha, double *u, const IndexRange &range);
+    virtual void subs(double *r, double *u, double *v, const IndexRange &range);
+    virtual void A(double *r, double *u, const IndexRange &range,
         double (*k)(double, double), double (*q)(double, double));
 
 private:
@@ -44,7 +42,7 @@ public:
         coord = toCoordinates(rank, pGrigSize);
     }
     virtual void solve(double error);
-    virtual double** getSolution();
+    virtual double* getSolution();
     void step(const IndexRange &range);
     void splitGrid(int rank, int size, IndexRange &range);
     virtual double getError(double (*u)(double, double));
@@ -64,9 +62,9 @@ protected:
     
     std::pair<int, int> getProcessorGridSize(int size);
     ProcessorCoordinates toCoordinates(int rank, std::pair<int, int> pGridSize);
-    void sendNodes(double **w, const ProcessorCoordinates &coord, 
+    void sendNodes(double *w, const ProcessorCoordinates &coord, 
         const IndexRange &range, const std::pair<int, int> &pGridSize, double *buf);
-    void receiveNodes(double **w, const ProcessorCoordinates &coord, 
+    void receiveNodes(double *w, const ProcessorCoordinates &coord, 
         const IndexRange &range, const std::pair<int, int> &pGridSize, double *buf);
     void copyW();
 

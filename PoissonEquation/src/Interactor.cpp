@@ -3,10 +3,12 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <iostream>
+#include <mpi.h>
 
 #include "SerialSolver.hpp"
 #include "ParallelSolver.hpp"
 #include "MultiThreadSolver.hpp"
+#include "GPUSolver.hpp"
 
 CommandLineController::CommandLineController(int argc, char **argv)
 {
@@ -60,7 +62,7 @@ Configuration CommandLineController::parse()
 
 }
 
-double** Interactor::solve()
+double* Interactor::solve()
 {
 
     AbstractLinearAlgebra *algebra = NULL;
@@ -78,6 +80,9 @@ double** Interactor::solve()
         case MPI_OMP_SOLVER:
             solver = new MultiThreadSolver(ctx, rank, size);
             break;
+        case MPI_CUDA_SOLVER:
+            solver = new GPUSolver(ctx, rank, size);
+            break;
         default:
             break;
     }
@@ -91,7 +96,7 @@ double** Interactor::solve()
         solutionError = solver->getError(u);
     }
 
-    double **solution = solver->getSolution();
+    double *solution = solver->getSolution();
 
     if (rank == 0) {
         std::cout << "Process number: " << size << std::endl;
@@ -104,7 +109,7 @@ double** Interactor::solve()
         }
     }
 
-    if (conf.printSolution) {
+    if (conf.printSolution && rank == 0) {
         printSolution(ctx);
     }
 
@@ -129,7 +134,7 @@ void Interactor::printSolution(const Context *ctx) {
     for (int j = 0; j <= ctx->N; ++j) {
         std::cout << "[";
         for (int i = 0; i <= ctx->M; ++i) {
-            std::cout << ctx->w[i][j];
+            std::cout << ctx->w[i*(ctx->M + 1) + j];
             if (i != ctx->M) std::cout << ", ";
             else std::cout << "]";
         }

@@ -1,10 +1,10 @@
-#include "MultiThreadSolver.hpp"
+#include "GPUSolver.hpp"
 
-#include <omp.h>
+#include <cstring>
 #include <mpi.h>
 
-#define x(i) (ctx->domain.x1 + i*(ctx->h1))
-#define y(i) (ctx->domain.y1 + i*(ctx->h2))
+#define x(i) (ctx->domain.x1 + (i)*(ctx->h1))
+#define y(i) (ctx->domain.y1 + (i)*(ctx->h2))
 #define d_rx(w) (w[(i + 1)*(ctx->N + 1) + j] - w[i*(ctx->N + 1) + j])/(ctx->h1)
 #define d_ry(w) (w[i*(ctx->N + 1) + j + 1] - w[i*(ctx->N + 1) + j])/(ctx->h2)
 #define d_lx(w) (w[i*(ctx->N + 1) + j] - w[(i - 1)*(ctx->N + 1) + j])/(ctx->h1)
@@ -12,12 +12,13 @@
 #define dx(w, k) (k(x(i) + 0.5*(ctx->h1), y(j))*d_rx(w) - k(x(i) - 0.5*(ctx->h1), y(j))*d_lx(w))/(ctx->h1)
 #define dy(w, k) (k(x(i), y(j) + 0.5*(ctx->h2))*d_ry(w) - k(x(i), y(j) - 0.5*(ctx->h2))*d_ly(w))/(ctx->h2)
 
-void MultiThreadSolver::solve(double error)
+void GPUSolver::solve(double error)
 {
 
+    modifyState();
+    
     double stepDiff = 0.0;
     do {
-        #pragma omp parallel for
         for (int i = range.x1; i <= range.x2; ++i) {
             for (int j = range.y1; j <= range.y2; ++j) {
                 int ind = i*(ctx->N + 1) + j;
@@ -32,7 +33,6 @@ void MultiThreadSolver::solve(double error)
 
         double squaredNorm = 0.0;
         double tau = 0.0;
-        #pragma omp parallel for reduction(+:squaredNorm, tau)
         for (int i = range.x1; i <= range.x2; ++i) {
             for (int j = range.y1; j <= range.y2; ++j) {
                 int ind = i*(ctx->N + 1) + j;
@@ -47,7 +47,6 @@ void MultiThreadSolver::solve(double error)
         tau /= squaredNorm;
 
         stepDiff = 0.0;
-        #pragma omp parallel for reduction(+:stepDiff)
         for (int i = range.x1; i <= range.x2; ++i) {
             for (int j = range.y1; j <= range.y2; ++j) {
                 int ind = i*(ctx->N + 1) + j;
@@ -62,9 +61,11 @@ void MultiThreadSolver::solve(double error)
         MPI_Allreduce(MPI_IN_PLACE, &stepDiff, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     } while (sqrt(stepDiff) > error);
 
+    restoreState();
+
 }
 
-double MultiThreadSolver::getError(double (*u)(double, double))
+double GPUSolver::getError(double (*u)(double, double))
 {
 
     double *U = new double[(ctx->M + 1)*(ctx->N + 1)];
@@ -85,5 +86,44 @@ double MultiThreadSolver::getError(double (*u)(double, double))
     delete[] U;
 
     return sqrt(squaredNorm);
+
+}
+
+void GPUSolver::modifyState()
+{
+
+    realM = ctx->M;
+    realN = ctx->N;
+    realRange = range;
+    realDomain = ctx->domain;
+
+    ctx->domain.x1 = x(range.x1 - 1);
+    ctx->domain.y1 = y(range.y1 - 1);
+    ctx->M = range.x2 - range.x1 + 2;
+    ctx->N = range.y2 - range.y1 + 2;
+    range = IndexRange(1, ctx->M - 1, 1, ctx->N - 1);
+
+    double *buf = new double[(ctx->M + 1)*(ctx->N + 1)];
+    for (int i = 0; i <= ctx->M; ++i) {
+        std::memcpy(buf + i*(ctx->N + 1), ctx->B + (i + realRange.x1 - 1)*(realN + 1) + realRange.y1 - 1, (ctx->N + 1)*sizeof(double));
+    }
+    std::memcpy(ctx->B, buf, sizeof(double)*(ctx->M + 1)*(ctx->N + 1));
+    delete[] buf;
+
+}
+
+void GPUSolver::restoreState()
+{
+
+    double *buf = new double[(ctx->M + 1)*(ctx->N + 1)];
+    std::memcpy(buf, ctx->w, sizeof(double)*(ctx->M + 1)*(ctx->N + 1));
+    for (int i = 0; i <= ctx->M; ++i) {
+        std::memcpy(ctx->w + (i + realRange.x1 - 1)*(realN + 1) + realRange.y1 - 1, buf + i*(ctx->N + 1), (ctx->N + 1)*sizeof(double));
+    }
+    range = realRange;
+    ctx->M = realM;
+    ctx->N = realN;
+    ctx->domain = realDomain;
+    delete[] buf;
 
 }

@@ -45,7 +45,7 @@ public:
     Interactor(Configuration conf, Context *ctx, int rank, int size, 
         double (*u)(double, double) = NULL) : 
         conf(conf), ctx(ctx), rank(rank), size(size), u(u) {}
-    double** solve();
+    double* solve();
 
 private:
     void printSolution(const Context *ctx);
