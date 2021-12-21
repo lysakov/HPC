@@ -15,7 +15,7 @@ set(SOURCE_FILES ${SOURCE_DIR}/main.cpp
 ${SOURCE_DIR}/SerialSolver.cpp
 ${SOURCE_DIR}/ParallelSolver.cpp
 ${SOURCE_DIR}/MultiThreadSolver.cpp
-${SOURCE_DIR}/GPUSolver.cpp
+${SOURCE_DIR}/GPUSolverMock.cpp
 ${SOURCE_DIR}/Interactor.cpp)
 
 include_directories(${INCLUDE_DIR} ${MPI_INCLUDE_PATH})

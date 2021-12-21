@@ -4,6 +4,8 @@
 #include "ISolver.hpp"
 #include "ParallelSolver.hpp"
 
+#include <cstdlib>
+
 class MultiThreadSolver : public ParallelSolver
 {
 

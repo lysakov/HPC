@@ -1,2 +1,8 @@
 build/
 .vscode
+obj/
+*.out
+*.err
+out
+err
+PoissonEquation

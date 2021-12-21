@@ -104,6 +104,10 @@ void ParallelAlgebra::A(double *r, double *u, const IndexRange &range,
 std::pair<int, int> ParallelSolver::getProcessorGridSize(int size)
 {
 
+    if (size == 2) {
+        return std::pair<int, int>(1, 2);
+    }
+
     int n = log2(size);
     int n_x = myPow(2, n/2);
     int n_y = myPow(2, n % 2 ? n/2 + 1 : n/2);
@@ -195,6 +199,9 @@ void ParallelSolver::receiveNodes(double *w, const ProcessorCoordinates &coord,
         msgToReceive--;
     if (coord.y == 0 || coord.y == pGridSize.second - 1)
         msgToReceive--;
+    if (size == 2)
+        msgToReceive = 1;
+
     int maxMsgLen = range.x2 - range.x1 + 1 > range.y2 - range.y1 + 1 ? range.x2 - range.x1 + 1 : range.y2 - range.y1 + 1;
 
     for (int i = 0; i < msgToReceive; ++i) {
