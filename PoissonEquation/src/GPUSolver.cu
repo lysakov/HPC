@@ -292,25 +292,21 @@ void GPUSolver::sendNodes(double *w, const ProcessorCoordinates &coord,
     int gridSize = ((ctx->M > ctx->N ? ctx->M : ctx->N) - 2)/1024 + 1;
     int blockSize = 1024;
 
-    cudaDeviceSynchronize();
     getNodes<<<gridSize, blockSize>>>(ctx->M, ctx->N, w, d_topNodes, d_bottomNodes, d_rightNodes, d_leftNodes);
+    cudaDeviceSynchronize();
 
     if (coord.x != 0) {
-        cudaMemcpy(buf, d_leftNodes, (ctx->N - 1)*sizeof(double), cudaMemcpyDeviceToHost);
         MPI_Send(d_leftNodes, ctx->N - 1, MPI_DOUBLE, coord.y*pGridSize.first + coord.x - 1, 
             RIGHT_NODES, MPI_COMM_WORLD);
     }
     if (coord.x != pGridSize.first - 1) {
-        cudaMemcpy(buf, d_rightNodes, (ctx->N - 1)*sizeof(double), cudaMemcpyDeviceToHost);
         MPI_Send(d_rightNodes, ctx->N - 1, MPI_DOUBLE, coord.y*pGridSize.first + coord.x + 1, 
             LEFT_NODES, MPI_COMM_WORLD);
     }
     if (coord.y != 0) {
-        cudaMemcpy(buf, d_bottomNodes, (ctx->M - 1)*sizeof(double), cudaMemcpyDeviceToHost);
         MPI_Send(d_bottomNodes, ctx->M - 1, MPI_DOUBLE, (coord.y - 1)*pGridSize.first + coord.x, TOP_NODES, MPI_COMM_WORLD);
     }
     if (coord.y != pGridSize.second - 1) {
-        cudaMemcpy(buf, d_topNodes, (ctx->M - 1)*sizeof(double), cudaMemcpyDeviceToHost);
         MPI_Send(d_topNodes, ctx->M - 1, MPI_DOUBLE, (coord.y + 1)*pGridSize.first + coord.x, BOTTOM_NODES, MPI_COMM_WORLD);
     }
 
